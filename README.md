@@ -5,6 +5,7 @@ fear‑emotion analysis (Vision Transformer), and behavioural precursor scoring 
 threat score.
 
 Table of Contents
+
 Overview
 
 Repository Structure
@@ -34,6 +35,7 @@ Citation
 License
 
 Overview
+
 Modern CCTV systems are largely reactive – they record incidents but cannot anticipate them.
 ProactiveGuard addresses this gap by combining four complementary detection streams into a
 unified Proactive Threat Score.
@@ -52,17 +54,26 @@ The system achieves 96.5% accuracy and 0.985 AUC‑ROC on a balanced test set,
 and demonstrates proactive detection up to 33 frames (~1.1 s) before incident escalation.
 
 Repository Structure
-text
+
+
 ├── proactiveguard‑violence‑detector.ipynb
+
     # Violence dataset preparation & training
+    
 ├── proactiveguard‑weapons‑detector.ipynb
+
     # Weapons dataset merging & YOLOv10s training
+    
 ├── ProactiveGuard emotion.ipynb
+
     # Emotion dataset merging & ViT training
-├──
-fusion‑and‑evaluation‑notebook.ipynb
+    
+├── fusion‑and‑evaluation‑notebook.ipynb
+
     # Fusion head training, full evaluation suite, ablation, lead‑time analysis
+    
 └── README.md
+
 All notebooks are designed to run on Kaggle (NVIDIA Tesla T4 GPUs) but can be adapted to any environment with a GPU and sufficient RAM.
 
 System Architecture
@@ -70,11 +81,13 @@ System Architecture
 
 Four parallel modules process every incoming video frame/clip:
 
+
 Weapon Module
 
 Model: YOLOv10s (NMS‑free, COCO‑pretrained)
 
 Output: W(t) – max detection confidence in frame *t*
+
 
 Violence Module
 
@@ -84,11 +97,13 @@ Temporal encoder: 2‑layer Bi‑LSTM (hidden=256) + temporal self‑attention
 
 Output: V(t) – posterior probability of “violent” class over a 32‑frame window
 
+
 Emotion Module
 
 Model: ViT‑Base/16 (86M params) with custom classification head
 
 Output: F(t) – fear class probability, averaged over 8 middle frames of a clip
+
 
 Precursor Module
 
@@ -96,42 +111,72 @@ Farnebäck dense optical flow between sampled frames
 
 Output: P(t) – coefficient of variation of flow magnitude, normalised to [0,1]
 
+
 Fusion Head (MLP: 4 → 16 → 8 → 1)
 Combines the four scores into a threat logit, then sigmoid to obtain
 S_threat(t). Alert thresholds:
 
-Threat Level	Condition	Action
+Threat Level | Condition | Action
 Low	S_threat < 0.40	Log only
 Medium	0.40 ≤ S < 0.50	Dashboard alert to operator
 High	S_threat ≥ 0.50	Immediate notification
+
+
 Results Summary
+
+
 Module Performance (on held‑out test sets)
-Module	Accuracy	F1	AUC	mAP@0.5
+
+Module | Accuracy |	F1 | AUC | mAP@0.5
+
 Violence (PG)	96.5%	96.5%	98.3%	–
+
 Emotion – Fear (PG)	89.7%	67.1%	92.1%	–
+
 Weapon (PG)	–	–	–	93.1%
+
 Fusion System (ProactiveGuard)
-Metric	Value
+
+Metric | Value
+
 Accuracy	0.9650
+
 Precision	0.9604
+
 Recall	0.9700
+
 F1‑score	0.9652
+
 FPR	0.0400
+
 FNR	0.0300
+
 AUC‑ROC	0.9846
+
 PR‑AUC	0.9838
+
 Ablation Study (F1 / AUC‑ROC)
-Configuration	F1 (%)	AUC‑ROC
+
+Configuration | F1 (%) | AUC‑ROC
+
 Full system	96.5	0.9846
+
 No Violence	0.0	0.7584
+
 No Weapon	96.5	0.9845
+
 No Precursor	96.5	0.9791
+
 No Emotion	96.5	0.9809
+
 Violence only	96.5	0.9833
+
 Weapon only	0.0	0.4845
+
 Violence is the dominant signal, but all modalities contribute to robustness and lower false positive rates.
 
 Proactive Lead‑Time
+
 Detection rate: 100% (2000 simulations)
 
 Mean lead time: 33.4 frames (~1.11 s at 30 FPS)
@@ -140,8 +185,10 @@ Std: 4.4 frames
 
 See the paper for full details.
 
-Setup & Installation
+Setup & Installation:
+
 Requirements
+
 Python 3.8+
 
 CUDA‑compatible GPU (recommended; the models can run on CPU but will be slow)
@@ -149,21 +196,26 @@ CUDA‑compatible GPU (recommended; the models can run on CPU but will be slow)
 Kaggle API credentials (optional, for automatic dataset download)
 
 Install Dependencies:
+
 bash
 pip install ultralytics torch torchvision torchaudio tqdm scikit-learn opencv-python pandas matplotlib seaborn pyyaml kagglehub transformers datasets accelerate
 
 Kaggle API Setup (for data download)
+
 If you intend to use the automatic download functions inside the notebooks, set your Kaggle credentials:
 
 bash
 export KAGGLE_USERNAME=your_username
 export KAGGLE_KEY=your_api_key
+
 Or place kaggle.json in ~/.kaggle/. Alternatively, you can manually download the datasets from Kaggle and adjust the paths in the notebooks.
 
 Dataset Preparation
+
 All datasets are publicly available. The notebooks contain code to download and pre‑process them, but you may also manually place them in the expected directories.
 
-Violence Dataset
+Violence Dataset:
+
 Source: https://www.kaggle.com/datasets/mohamedmustafa/real-life-violence-situations-dataset
 
 Kaggle slug: mohamedmustafa/real-life-violence-situations-dataset
@@ -173,7 +225,9 @@ The notebook extracts 32‑frame sequences from each video and organises them in
 text
 data/violence/frames/{train,val,test}/{violence,nonviolence}/{clip_id}/frame_xxxx.jpg
 
-Weapon Dataset
+
+Weapon Dataset:
+
 Merged from four public sources into a single “weapon” class:
 
 Weapons detection dataset, available at:
@@ -187,10 +241,12 @@ https://universe.roboflow.com/scan-gizi-makanan/weapondetection2fps
 
 Final Computer Vision Dataset, available at:
 https://universe.roboflow.com/detection-gun/final-hcrmc-tsvcy
+
 The merging notebook (proactiveguard‑weapons‑detector.ipynb) handles class re‑mapping, train/val/test splitting, and generation of a unified data.yaml.
 After merging, the dataset is stored at /kaggle/working/unified_dataset_one_class/.
 
-Emotion Dataset
+Emotion Dataset:
+
 Merged from three sources:
 
 FER2013 (Kaggle pre‑processed version) - https://www.kaggle.com/datasets/msambare/fer2013
@@ -207,6 +263,7 @@ Training the Modules
 Each module can be trained independently. The notebooks are self‑contained and include all steps from data preparation to checkpoint saving.
 
 1. Violence Detection
+
 Notebook: proactiveguard‑violence‑detector.ipynb
 
 Prepares the violence frame dataset.
@@ -226,6 +283,7 @@ epochs: 60, batch: 8, lr: 3e‑4, patience: 12
 Output: violence_best.pt (model state dict + validation metrics).
 
 2. Weapon Detection
+
 Notebook: proactiveguard‑weapons‑detector.ipynb
 
 Merges four weapon datasets into one binary class (“weapon”).
@@ -245,6 +303,7 @@ Early stopping patience: 20
 Output: /kaggle/working/weapon_best.pt
 
 3. Emotion (Fear) Detection
+
 Notebook: ProactiveGuard emotion.ipynb
 
 Merges AffectNet, RAF‑DB, FER2013 into emotion_combined/.
@@ -264,6 +323,7 @@ Transforms: RandomResizedCrop, HorizontalFlip, ColorJitter
 Output: emotion_vit_best.pt (full model state dict).
 
 Fusion Training & Full Evaluation
+
 Notebook: fusion‑and‑evaluation‑notebook.ipynb
 
 This notebook performs:
@@ -292,7 +352,8 @@ Generates plots (evaluation report) and a JSON results file.
 
 Run this notebook after the three specialist modules have been trained and their checkpoints are available. Adjust the checkpoint paths in the notebook’s config to point to your trained .pt files.
 
-Ethical Considerations
+Ethical Considerations:
+
 ProactiveGuard is designed as an assistive tool – it does not autonomously trigger enforcement actions.
 Key safeguards mentioned in the paper:
 
